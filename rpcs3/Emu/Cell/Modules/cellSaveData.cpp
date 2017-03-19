@@ -160,7 +160,7 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 {
 	static int i = 0;
 	// TODO: check arguments
-	for (int j = 0; j < 100000000000; j++);
+	//for (int j = 0; j < 100000000000; j++);
 	std::unique_lock<std::mutex> lock(g_savedata_mutex, std::try_to_lock);
 
 	if (!lock)
@@ -183,11 +183,11 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 	vm::var<CellSaveDataFileGet>  const fileGet;
 	vm::var<CellSaveDataFileSet>  const fileSet = {};
 
-	//vm::var<char[]>                         invalidMsgVar(CELL_SAVEDATA_INVALIDMSG_MAX);
+	vm::var<char[]>                         invalidMsgVar(CELL_SAVEDATA_INVALIDMSG_MAX);
 
 	
 	result->userdata = userdata;
-	//result->invalidMsg = invalidMsgVar;
+	result->invalidMsg = invalidMsgVar;
 	cellSaveData.fatal("THIS IS MADNESS\n");
 	dump_result(result);
 	cellSaveData.fatal("THIS IS SPARTAAAAAAA\n");
