@@ -512,7 +512,7 @@ error_code sys_fs_fstat(u32 fd, vm::ptr<CellFsStat> sb)
 
 error_code sys_fs_mkdir(vm::cptr<char> path, s32 mode)
 {
-	sys_fs.warning("sys_fs_mkdir(path=%s, mode=%#o)", path, mode);
+	sys_fs.error("sys_fs_mkdir(path=%s, mode=%#o)", path, mode);
 
 	const std::string& local_path = vfs::get(path.get_ptr());
 

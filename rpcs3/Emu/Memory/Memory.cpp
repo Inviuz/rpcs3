@@ -59,6 +59,8 @@ bool VirtualMemoryBlock::Map(u32 realaddr, u32 size, u32 addr)
 	{
 		if (addr >= m_mapped_memory[i].addr && addr + size - 1 <= m_mapped_memory[i].addr + m_mapped_memory[i].size - 1)
 		{
+			if (realaddr == m_mapped_memory[i].realAddress + size)
+				return true;
 			return false;
 		}
 	}

@@ -11,7 +11,7 @@ s32 sceNpSnsFbInit(vm::ptr<const SceNpSnsFbInitParams> params)
 
 	// TODO: Use the initialization parameters somewhere
 
-	return CELL_OK;
+	return SCE_NP_SNS_ERROR_INVALID_ARGUMENT;
 }
 
 s32 sceNpSnsFbTerm()

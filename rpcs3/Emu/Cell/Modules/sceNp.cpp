@@ -873,10 +873,18 @@ s32 sceNpManagerGetOnlineId()
 	return CELL_OK;
 }
 
-s32 sceNpManagerGetNpId()
+s32 sceNpManagerGetNpId(vm::ptr<SceNpId> npId)
 {
+	sceNp.warning("sceNpManagerGetNpId(npId=*0x%x)", npId);
+
+	npId->handle.term = '\0';
+	strcpy(npId->handle.data, "User");
+	npId->opt[0] = 0xff;
+	npId->reserved[0] = 0x0;
+
 	UNIMPLEMENTED_FUNC(sceNp);
-	return CELL_OK;
+	//return CELL_OK;
+	return SCE_NP_ERROR_OFFLINE;
 }
 
 s32 sceNpManagerGetOnlineName()

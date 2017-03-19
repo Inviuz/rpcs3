@@ -36,7 +36,7 @@ s32 sceNpUnregisterServiceStateCallback()
 	fmt::throw_exception("Unimplemented" HERE);
 }
 
-s32 sceNpManagerGetNpId(vm::ptr<SceNpId> npId)
+s32 sceNpManagerGetNpId()
 {
 	fmt::throw_exception("Unimplemented" HERE);
 }

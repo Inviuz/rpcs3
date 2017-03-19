@@ -338,10 +338,17 @@ error_code cellFsWriteWithOffset(u32 fd, u64 offset, vm::cptr<void> buf, u64 dat
 
 	return not_an_error(rc ? rc : arg->out_code.value());
 }
+CellFsRingBuffer ring_buffer;
+u64 size_to_read;
 
 s32 cellFsStReadInit(u32 fd, vm::cptr<CellFsRingBuffer> ringbuf)
 {
 	cellFs.todo("cellFsStReadInit(fd=%d, ringbuf=*0x%x)", fd, ringbuf);
+	ring_buffer.block_size = ringbuf->block_size;
+	ring_buffer.copy = ringbuf->copy;
+	ring_buffer.ringbuf_size = ringbuf->ringbuf_size;
+	ring_buffer.transfer_rate = ringbuf->transfer_rate;
+
 
 	if (ringbuf->copy & ~CELL_FS_ST_COPYLESS)
 	{
@@ -442,13 +449,25 @@ s32 cellFsStReadGetRegid(u32 fd, vm::ptr<u64> regid)
 s32 cellFsStReadStart(u32 fd, u64 offset, u64 size)
 {
 	cellFs.todo("cellFsStReadStart(fd=%d, offset=0x%llx, size=0x%llx)", fd, offset, size);
+	//struct container_stream final : file_base
 
 	const auto file = idm::get<lv2_fs_object, lv2_file>(fd);
+	if (file->file.size() < offset + size)
+	{
+		return CELL_EINVAL;
+	}
+	
+	//auto sdata_file = std::make_unique<>(lv2_file::make_view(file, offset));
+	
+	
 
 	if (!file)
 	{
 		return CELL_EBADF;
 	}
+
+	file->file.seek(offset);
+	size_to_read = size;
 
 	// TODO
 
@@ -481,11 +500,14 @@ s32 cellFsStRead(u32 fd, vm::ptr<u8> buf, u64 size, vm::ptr<u64> rsize)
 	{
 		return CELL_EBADF;
 	}
+	*rsize = file->op_read(buf, size);
+
 
 	// TODO
 
 	return CELL_OK;
 }
+
 
 s32 cellFsStReadGetCurrentAddr(u32 fd, vm::ptr<u32> addr, vm::ptr<u64> size)
 {
