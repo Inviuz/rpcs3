@@ -884,7 +884,7 @@ s32 sceNpManagerGetNpId(vm::ptr<SceNpId> npId)
 
 	UNIMPLEMENTED_FUNC(sceNp);
 	//return CELL_OK;
-	return SCE_NP_ERROR_OFFLINE;
+	return CELL_OK;
 }
 
 s32 sceNpManagerGetOnlineName()

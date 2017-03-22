@@ -10,6 +10,8 @@
 #include <mutex>
 #include <algorithm>
 #include <sstream>
+#include "Emu/IdManager.h"
+#include "cellSysutil.h"
 
 logs::channel cellSaveData("cellSaveData", logs::level::notice);
 
@@ -26,6 +28,7 @@ using PFuncStat = vm::ptr<CellSaveDataStatCallback>;
 using PFuncFile = vm::ptr<CellSaveDataFileCallback>;
 using PFuncDone = vm::ptr<CellSaveDataDoneCallback>;
 
+
 enum : u32
 {
 	SAVEDATA_OP_AUTO_SAVE      = 0,
@@ -41,6 +44,9 @@ enum : u32
 };
 
 std::mutex g_savedata_mutex;
+std::mutex cellSaveMutex;
+std::condition_variable cellSaveCond;
+bool cellSaveReady = false;
 
 void dump_stat_get(CellSaveDataStatGet to_be_dumped)
 {
@@ -167,8 +173,10 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 	{
 		return CELL_SAVEDATA_ERROR_BUSY;
 	}
+
 	
 	//dump_userdata(userdata);
+	cellSaveData.fatal("fcuk ppu %s", ppu.get_name());
 	i++;
 	cellSaveData.fatal("Number of calls 0x%x", i);
 
@@ -182,6 +190,15 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 	vm::var<CellSaveDataStatSet>  const statSet;
 	vm::var<CellSaveDataFileGet>  const fileGet;
 	vm::var<CellSaveDataFileSet>  const fileSet = {};
+
+	vm::ptr<CellSaveDataCBResult> const result_ptr = result;
+	vm::ptr<CellSaveDataListGet>  const listGet_ptr = listGet;
+	vm::ptr<CellSaveDataListSet>  const listSet_ptr = listSet;
+	vm::ptr<CellSaveDataFixedSet> const fixedSet_ptr = fixedSet;
+	vm::ptr<CellSaveDataStatGet>  const statGet_ptr = statGet;
+	vm::ptr<CellSaveDataStatSet>  const statSet_ptr = statSet;
+	vm::ptr<CellSaveDataFileGet>  const fileGet_ptr = fileGet;
+	vm::ptr<CellSaveDataFileSet>  const fileSet_ptr = fileSet;
 
 	vm::var<char[]>                         invalidMsgVar(CELL_SAVEDATA_INVALIDMSG_MAX);
 
@@ -325,7 +342,13 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 			cellSaveData.error("funcList block begins");
 			result;
 			// List Callback
+			//std::unique_lock<std::mutex> lck(cellSaveMutex);
+			
 			funcList(ppu, result, listGet, listSet);
+
+			//cellSaveCond.wait(lck, [] {return cellSaveReady; });
+			//cellSaveReady = false;
+			//lck.unlock();
 
 			cellSaveData.error("after funcList callback");
 			dump_result(result);
@@ -456,9 +479,25 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 			cellSaveData.error("funcFixed block begins");
 			// Fixed Callback+
 			dumpCellSaveDataListGet(listGet);
+			//vm::ptr<CellSaveDataFixedCallback>; void(vm::ptr<CellSaveDataCBResult> cbResult, vm::ptr<CellSaveDataListGet> get, vm::ptr<CellSaveDataFixedSet> set);
+			//vm::ptr<void((vm::ptr<CellSaveDataCBResult> cbResult, vm::ptr<CellSaveDataListGet> get, vm::ptr<CellSaveDataFixedSet> set)>
+			//vm::ptr<void> kupa = funcFixed;
+			vm::ptr<CellSaveDataListGet> DUPA = listGet;
 			cellSaveData.fatal("Poznajmy rozmiary 0x%x, 0x%x, 0x%x, 0x%x", sizeof(CellSaveDataCBResult), sizeof(CellSaveDataListGet), sizeof(CellSaveDataFixedSet), funcFixed);
-			funcFixed(ppu, result, listGet, fixedSet);
+			
+			//std::unique_lock<std::mutex> lck(cellSaveMutex);
+			cellSaveData.fatal("After unique lock, registering callback");
+			//cellSysutilRegisterSaveCallback((s32)0, funcFixed,result_ptr,listGet_ptr,fixedSet_ptr);
+			funcFixed(ppu,result, listGet, fixedSet);
+			//cellSaveCond.wait(lck, [] {return cellSaveReady; });
+			
+			//funcFixed(ppu, result, listGet, fixedSet);
+			//
+			cellSaveReady = false;
+			//
 			cellSaveData.error("funcFixed after callback");
+			//cellSysutilUnregisterSaveCallback((u32)0);
+			//lck.unlock();
 			dump_result(result);
 			//result;
 
@@ -602,7 +641,11 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		//vm::var<CellSaveDataCBResult> result5;
 		//result5->userdata = userdata;
 		//dump_result(result);
+		//std::unique_lock<std::mutex> lck(cellSaveMutex);
 		funcStat(ppu, result, statGet, statSet);
+		//cellSaveCond.wait(lck, [] {return cellSaveReady; });
+		//cellSaveReady = false;
+		//lck.unlock();
 		result;
 
 
@@ -718,7 +761,11 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		
 
 		//dump_result(result);
+		//std::unique_lock<std::mutex> lck(cellSaveMutex);
 		funcFile(ppu, result, fileGet, fileSet);
+		//cellSaveCond.wait(lck, [] {return cellSaveReady; });
+		//cellSaveReady = false;
+		//lck.unlock();
 		cellSaveData.error("after funcFile callback");
 		//result;
 		dump_result(result);

@@ -1,15 +1,8 @@
 ﻿#include "stdafx.h"
-#include "Utilities/Config.h"
-#include "Emu/System.h"
-#include "Emu/IdManager.h"
-#include "Emu/Cell/PPUModule.h"
-
 #include "cellSysutil.h"
 
-#include "Utilities/StrUtil.h"
 
-#include <mutex>
-#include <queue>
+//#include "Emu/Cell/Modules/cellSaveData.h"
 
 logs::channel cellSysutil("cellSysutil", logs::level::notice);
 
@@ -17,7 +10,10 @@ struct sysutil_cb_manager
 {
 	std::mutex mutex;
 
+	
+
 	std::array<std::pair<vm::ptr<CellSysutilCallback>, vm::ptr<void>>, 4> callbacks;
+
 
 	std::queue<std::function<s32(ppu_thread&)>> registered;
 
@@ -38,6 +34,8 @@ struct sysutil_cb_manager
 	}
 };
 
+
+
 extern void sysutil_register_cb(std::function<s32(ppu_thread&)>&& cb)
 {
 	const auto cbm = fxm::get_always<sysutil_cb_manager>();
@@ -49,20 +47,39 @@ extern void sysutil_register_cb(std::function<s32(ppu_thread&)>&& cb)
 
 extern void sysutil_send_system_cmd(u64 status, u64 param)
 {
-	if (const auto cbm = fxm::get<sysutil_cb_manager>())
+	if (const auto cbm_save = fxm::get<sysutil_cb_save_manager>())
 	{
-		for (auto& cb : cbm->callbacks)
+		for (auto& cb : cbm_save->callbacks)
 		{
-			if (cb.first)
-			{
-				std::lock_guard<std::mutex> lock(cbm->mutex);
 
-				cbm->registered.push([=](ppu_thread& ppu) -> s32
+			if (std::get<0>(cb))
+			{
+				std::lock_guard<std::mutex> lock(cbm_save->mutex);
+
+				cbm_save->registered.push([=](ppu_thread& ppu) -> s32
 				{
 					// TODO: check it and find the source of the return value (void isn't equal to CELL_OK)
-					cb.first(ppu, status, param, cb.second);
+					//(std::get<0>(cb))(ppu, std::get<1>(cb), std::get<2>(cb), std::get<3>(cb));
 					return CELL_OK;
 				});
+			}
+		}
+		if (const auto cbm = fxm::get<sysutil_cb_manager>())
+		{
+
+			for (auto& cb : cbm->callbacks)
+			{
+				if (cb.first)
+				{
+					std::lock_guard<std::mutex> lock(cbm->mutex);
+
+					cbm->registered.push([=](ppu_thread& ppu) -> s32
+					{
+						// TODO: check it and find the source of the return value (void isn't equal to CELL_OK)
+						cb.first(ppu, status, param, cb.second);
+						return CELL_OK;
+					});
+				}
 			}
 		}
 	}
@@ -95,7 +112,6 @@ cfg::map_entry<s32> g_cfg_sys_language(cfg::root.sys, "Language",
 // For test
 enum systemparam_id_name : s32 {};
 
-template<>
 void fmt_class_string<systemparam_id_name>::format(std::string& out, u64 arg)
 {
 	format_enum(out, arg, [](auto value)
@@ -229,10 +245,32 @@ s32 cellSysutilCheckCallback(ppu_thread& ppu)
 
 	const auto cbm = fxm::get_always<sysutil_cb_manager>();
 
+	//tu
+	const auto cbm_save = fxm::get_always<sysutil_cb_save_manager>();
+	const auto& tuple = cbm_save->callbacks[0];
+	while (auto&& func = cbm_save->get_cb())
+	{
+		if (s32 res = func(ppu))
+		{
+		/*	std::mutex cellSaveMutex;
+			std::condition_variable cellSaveCond;
+			bool cellSaveReady = true;*/
+			std::lock_guard<std::mutex> guard(cellSaveMutex);
+			cellSaveReady = true;
+			cellSaveCond.notify_all();
+			
+
+			return res;
+		}
+
+		thread_ctrl::test();
+	}
+
 	while (auto&& func = cbm->get_cb())
 	{
 		if (s32 res = func(ppu))
 		{
+			
 			return res;
 		}
 
@@ -258,6 +296,7 @@ s32 cellSysutilRegisterCallback(s32 slot, vm::ptr<CellSysutilCallback> func, vm:
 	return CELL_OK;
 }
 
+
 s32 cellSysutilUnregisterCallback(u32 slot)
 {
 	cellSysutil.warning("cellSysutilUnregisterCallback(slot=%d)", slot);
@@ -270,6 +309,22 @@ s32 cellSysutilUnregisterCallback(u32 slot)
 	const auto cbm = fxm::get_always<sysutil_cb_manager>();
 
 	cbm->callbacks[slot] = std::make_pair(vm::null, vm::null);
+
+	return CELL_OK;
+}
+
+s32 cellSysutilUnregisterSaveCallback(u32 slot)
+{
+	cellSysutil.warning("cellSysutilUnregisterCallback(slot=%d)", slot);
+
+	if (slot >= 4)
+	{
+		return CELL_SYSUTIL_ERROR_VALUE;
+	}
+
+	const auto cbm = fxm::get_always<sysutil_cb_save_manager>();
+
+	cbm->callbacks[slot] = std::make_tuple(vm::null, vm::null,vm::null,vm::null);
 
 	return CELL_OK;
 }

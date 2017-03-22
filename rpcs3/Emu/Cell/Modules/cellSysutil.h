@@ -1,6 +1,21 @@
 #pragma once
 
+
+#include "Utilities/Config.h"
+#include "Emu/System.h"
+#include "Emu/IdManager.h"
+#include "Emu/Cell/PPUModule.h"
+
+#include <mutex>
+#include "Emu/Cell/Modules/cellSaveData.h"
+#include "Utilities/StrUtil.h"
+
+#include <mutex>
+#include <queue>
+
+
 namespace vm { using namespace ps3; }
+
 
 enum
 {
@@ -198,3 +213,53 @@ struct CellSysCacheParam
 
 extern void sysutil_register_cb(std::function<s32(ppu_thread&)>&&);
 extern void sysutil_send_system_cmd(u64 status, u64 param);
+s32 cellSysutilUnregisterSaveCallback(u32 slot);
+
+extern std::mutex cellSaveMutex;
+extern std::condition_variable cellSaveCond;
+extern bool cellSaveReady;
+
+struct sysutil_cb_save_manager
+{
+	std::mutex mutex;
+
+	std::array<std::tuple<vm::ptr<CellSaveDataFixedCallback>, vm::ptr<CellSaveDataCBResult>, vm::ptr<void>, vm::ptr<void>>, 4> callbacks;
+
+	std::queue<std::function<s32(ppu_thread&)>> registered;
+
+
+	std::function<s32(ppu_thread&)> get_cb()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+
+		if (registered.empty())
+		{
+			return nullptr;
+		}
+
+		auto func = std::move(registered.front());
+
+		registered.pop();
+
+		return func;
+	}
+};
+
+template<typename A, typename B>
+s32 cellSysutilRegisterSaveCallback(s32 slot, vm::ptr<CellSaveDataFixedCallback> func, vm::ptr<CellSaveDataCBResult> result, A get, B set)
+{
+	//cellSysutil.warning("cellSysutilRegisterCallback(slot=%d, func=*0x%x, userdata=*0x%x)", slot, func);
+
+	if (slot >= 4)
+	{
+		return CELL_SYSUTIL_ERROR_VALUE;
+	}
+
+	const auto cbm = fxm::get_always<sysutil_cb_save_manager>();
+
+	cbm->callbacks[slot] = std::make_tuple(func, result, get, set);
+
+	return CELL_OK;
+}
+
+
