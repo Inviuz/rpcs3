@@ -576,6 +576,7 @@ s32 _ZN8cxmlutil7GetFileERKN4cxml7ElementEPKcPNS0_4FileE()
 
 s32 cellSysutil_E1EC7B6A(vm::ptr<u32> unk)
 {
+	//seems to return global(default) container ID
 	cellSysutil.todo("cellSysutil_E1EC7B6A(unk=*0x%x)", unk);
 	*unk = 0;
 	return CELL_OK;
