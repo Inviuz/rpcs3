@@ -9,9 +9,6 @@
 
 #include <mutex>
 #include <algorithm>
-#include <sstream>
-#include "Emu/IdManager.h"
-#include "cellSysutil.h"
 
 logs::channel cellSaveData("cellSaveData", logs::level::notice);
 
@@ -28,17 +25,16 @@ using PFuncStat = vm::ptr<CellSaveDataStatCallback>;
 using PFuncFile = vm::ptr<CellSaveDataFileCallback>;
 using PFuncDone = vm::ptr<CellSaveDataDoneCallback>;
 
-
 enum : u32
 {
-	SAVEDATA_OP_AUTO_SAVE      = 0,
-	SAVEDATA_OP_AUTO_LOAD      = 1,
+	SAVEDATA_OP_AUTO_SAVE = 0,
+	SAVEDATA_OP_AUTO_LOAD = 1,
 	SAVEDATA_OP_LIST_AUTO_SAVE = 2,
 	SAVEDATA_OP_LIST_AUTO_LOAD = 3,
-	SAVEDATA_OP_LIST_SAVE      = 4,
-	SAVEDATA_OP_LIST_LOAD      = 5,
-	SAVEDATA_OP_FIXED_SAVE     = 6,
-	SAVEDATA_OP_FIXED_LOAD     = 7,
+	SAVEDATA_OP_LIST_SAVE = 4,
+	SAVEDATA_OP_LIST_LOAD = 5,
+	SAVEDATA_OP_FIXED_SAVE = 6,
+	SAVEDATA_OP_FIXED_LOAD = 7,
 
 	SAVEDATA_OP_FIXED_DELETE = 14,
 };
@@ -61,129 +57,13 @@ namespace
 vm::gvar<savedata_context> g_savedata_context;
 
 std::mutex g_savedata_mutex;
-std::mutex cellSaveMutex;
-std::condition_variable cellSaveCond;
-bool cellSaveReady = false;
-
-void dump_stat_get(CellSaveDataStatGet to_be_dumped)
-{
-	////CellSaveDataStatGet
-	//be_t<s32> hddFreeSizeKB;
-	//be_t<u32> isNewData;
-	//CellSaveDataDirStat dir;
-	//CellSaveDataSystemFileParam getParam;
-	//be_t<u32> bind;
-	//be_t<s32> sizeKB;
-	//be_t<s32> sysSizeKB;
-	//be_t<u32> fileNum;
-	//be_t<u32> fileListNum;
-	//vm::bptr<CellSaveDataFileStat> fileList;
-	//char reserved[64];
-
-	////CellSaveDataDirStat
-	//be_t<s64> atime;
-	//be_t<s64> mtime;
-	//be_t<s64> ctime;
-	//char dirName[CELL_SAVEDATA_DIRNAME_SIZE];
-
-	////CellSaveDataSystemFileParam
-	//char title[CELL_SAVEDATA_SYSP_TITLE_SIZE];
-	//char subTitle[CELL_SAVEDATA_SYSP_SUBTITLE_SIZE];
-	//char detail[CELL_SAVEDATA_SYSP_DETAIL_SIZE];
-	//be_t<u32> attribute;
-	//char reserved2[4];
-	//char listParam[CELL_SAVEDATA_SYSP_LPARAM_SIZE];
-	//char reserved[256];
-
-	////CellSaveDataFileStat
-	//be_t<u32> fileType;
-	//char reserved1[4];
-	//be_t<u64> size;
-	//be_t<s64> atime;
-	//be_t<s64> mtime;
-	//be_t<s64> ctime;
-	//char fileName[CELL_SAVEDATA_FILENAME_SIZE];
-	//char reserved2[3];
-	std::ostringstream stringer;
-	stringer << "be_t<s32> hddFreeSizeKB; " << to_be_dumped.hddFreeSizeKB << std::endl <<
-		"be_t<u32> isNewData; " << to_be_dumped.isNewData  << std::endl <<
-		"be_t<u32> bind; " << to_be_dumped.bind << std::endl <<
-		"be_t<s32> sizeKB; " << to_be_dumped.sizeKB << std::endl <<
-		"be_t<s32> sysSizeKB; " << to_be_dumped.sysSizeKB << std::endl <<
-		"be_t<u32> fileNum; " << to_be_dumped.fileNum << std::endl <<
-		"be_t<u32> fileListNum; " << to_be_dumped.fileListNum << std::endl << std::endl;
-
-	stringer << "be_t<s64> atime;; " << to_be_dumped.dir.atime << std::endl <<
-		"be_t<s64> mtime;; " << to_be_dumped.dir.mtime << std::endl <<
-		"be_t<s64> ctime;; " << to_be_dumped.dir.ctime << std::endl <<
-		"char dirName[CELL_SAVEDATA_DIRNAME_SIZE]; " << to_be_dumped.dir.dirName << std::endl << std::endl;
-
-	stringer << "title " << to_be_dumped.getParam.title << std::endl <<
-		"subtitle " << to_be_dumped.getParam.subTitle << std::endl <<
-		"detail " << to_be_dumped.getParam.detail << std::endl <<
-		"listParam " << to_be_dumped.getParam.listParam << std::endl;
-
-	stringer << "fileType " << to_be_dumped.fileList->fileType << std::endl <<
-		"size " << to_be_dumped.fileList->size << std::endl <<
-		"atime " << to_be_dumped.fileList->atime << std::endl <<
-		"mtime " << to_be_dumped.fileList->mtime << std::endl <<
-		"ctime " << to_be_dumped.fileList->ctime << std::endl <<
-		"fileName " << to_be_dumped.fileList->fileName << std::endl << std::endl;
-	//ellSaveData.error("DUMPING CELLSAVEDATASTATGET" + "a"
-	std::string output = stringer.str();
-	cellSaveData.fatal("%s\n", output.c_str());
-
-
-
-}
-
-vm::ptr<void> return_userdata(vm::ptr<void> userdata)
-{
-	return static_cast<vm::ptr<void>>(userdata);
-}
-
-void dump_userdata(vm::ptr<void> userdata)
-{
-	std::ostringstream stringer;
-	stringer <<"userdata = " << userdata.get_ptr() <<  std::endl;
-	std::string output = stringer.str();
-	cellSaveData.fatal("%s\n", output.c_str());
-}
-
-void dump_result(vm::ptr<CellSaveDataCBResult> result)
-{
-	std::ostringstream stringer;
-	stringer << "result->result = " << result->result << std::endl <<
-		"result->progressBarInc = " << result->progressBarInc << std::endl <<
-		"result->errNeedSizeKB = " << result->errNeedSizeKB << std::endl <<
-		"result->userData = " << (result->userdata.get_ptr()) << std::endl;
-	if (result->invalidMsg) {
-		stringer << "result->invalidMsg = " << result->invalidMsg.get_ptr() << std::endl;
-	}
-		//"result->invalidmsg = " << result->invalidMsg.get_ptr() << std::endl;
-	std::string output = stringer.str();
-	cellSaveData.fatal("%s\n", output.c_str());
-}
-
-void dumpCellSaveDataListGet(vm::ptr<CellSaveDataListGet> get)
-{
-	cellSaveData.fatal("Dump CellSaveDataListGet in the CellSaveDataListCallback or CellSaveDataListCallback--------------------\n");
-	cellSaveData.fatal("\tget->dirNum : %d\n", get->dirNum);
-	cellSaveData.fatal("\tget->dirListNum: %d\n", get->dirListNum);
-	/* Dump every directory parameter of received directory list */
-	for (unsigned int i = 0; i < get->dirListNum; i++) {
-		cellSaveData.fatal("\t%4d  DIRNAME: %s\t\tPARAM: %s\n", i, get->dirList[i].dirName, get->dirList[i].listParam);
-	}
-}
-
 
 static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version, vm::cptr<char> dirName,
 	u32 errDialog, PSetList setList, PSetBuf setBuf, PFuncList funcList, PFuncFixed funcFixed, PFuncStat funcStat,
 	PFuncFile funcFile, u32 container, u32 unknown, vm::ptr<void> userdata, u32 userId, PFuncDone funcDone)
 {
-	static int i = 0;
 	// TODO: check arguments
-	//for (int j = 0; j < 100000000000; j++);
+
 	std::unique_lock<std::mutex> lock(g_savedata_mutex, std::try_to_lock);
 
 	if (!lock)
@@ -191,59 +71,21 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		return CELL_SAVEDATA_ERROR_BUSY;
 	}
 
-<<<<<<< HEAD
-	
-	//dump_userdata(userdata);
-	cellSaveData.fatal("fcuk ppu %s", ppu.get_name());
-	i++;
-	cellSaveData.fatal("Number of calls 0x%x", i);
-
-	//thread_ctrl::wait_for(100000000);
-
-	vm::var<CellSaveDataCBResult> const result = {};
-	vm::var<CellSaveDataListGet>  const listGet;
-	vm::var<CellSaveDataListSet>  const listSet;
-	vm::var<CellSaveDataFixedSet> const fixedSet;
-	vm::var<CellSaveDataStatGet>  const statGet;
-	vm::var<CellSaveDataStatSet>  const statSet;
-	vm::var<CellSaveDataFileGet>  const fileGet;
-	vm::var<CellSaveDataFileSet>  const fileSet = {};
-
-	vm::ptr<CellSaveDataCBResult> const result_ptr = result;
-	vm::ptr<CellSaveDataListGet>  const listGet_ptr = listGet;
-	vm::ptr<CellSaveDataListSet>  const listSet_ptr = listSet;
-	vm::ptr<CellSaveDataFixedSet> const fixedSet_ptr = fixedSet;
-	vm::ptr<CellSaveDataStatGet>  const statGet_ptr = statGet;
-	vm::ptr<CellSaveDataStatSet>  const statSet_ptr = statSet;
-	vm::ptr<CellSaveDataFileGet>  const fileGet_ptr = fileGet;
-	vm::ptr<CellSaveDataFileSet>  const fileSet_ptr = fileSet;
-
-	vm::var<char[]>                         invalidMsgVar(CELL_SAVEDATA_INVALIDMSG_MAX);
-
-	
-	result->userdata = userdata;
-	result->invalidMsg = invalidMsgVar;
-	cellSaveData.fatal("THIS IS MADNESS\n");
-	dump_result(result);
-	cellSaveData.fatal("THIS IS SPARTAAAAAAA\n");
-
-
 	*g_savedata_context = {};
 
-	vm::ptr<CellSaveDataCBResult> result   = g_savedata_context.ptr(&savedata_context::result);
-	vm::ptr<CellSaveDataListGet>  listGet  = g_savedata_context.ptr(&savedata_context::listGet);
-	vm::ptr<CellSaveDataListSet>  listSet  = g_savedata_context.ptr(&savedata_context::listSet);
+	vm::ptr<CellSaveDataCBResult> result = g_savedata_context.ptr(&savedata_context::result);
+	vm::ptr<CellSaveDataListGet>  listGet = g_savedata_context.ptr(&savedata_context::listGet);
+	vm::ptr<CellSaveDataListSet>  listSet = g_savedata_context.ptr(&savedata_context::listSet);
 	vm::ptr<CellSaveDataFixedSet> fixedSet = g_savedata_context.ptr(&savedata_context::fixedSet);
-	vm::ptr<CellSaveDataStatGet>  statGet  = g_savedata_context.ptr(&savedata_context::statGet);
-	vm::ptr<CellSaveDataStatSet>  statSet  = g_savedata_context.ptr(&savedata_context::statSet);
-	vm::ptr<CellSaveDataFileGet>  fileGet  = g_savedata_context.ptr(&savedata_context::fileGet);
-	vm::ptr<CellSaveDataFileSet>  fileSet  = g_savedata_context.ptr(&savedata_context::fileSet);
+	vm::ptr<CellSaveDataStatGet>  statGet = g_savedata_context.ptr(&savedata_context::statGet);
+	vm::ptr<CellSaveDataStatSet>  statSet = g_savedata_context.ptr(&savedata_context::statSet);
+	vm::ptr<CellSaveDataFileGet>  fileGet = g_savedata_context.ptr(&savedata_context::fileGet);
+	vm::ptr<CellSaveDataFileSet>  fileSet = g_savedata_context.ptr(&savedata_context::fileSet);
 
 	// path of the specified user (00000001 by default)
 	const std::string& base_dir = vfs::get(fmt::format("/dev_hdd0/home/%08u/savedata/", userId ? userId : 1u));
 
-	 // probably should be assigned only once (allows the callback to change it)
-	//cellSaveData.fatal("first cBresult 0x%x invalid %s", result->result, result->invalidMsg);
+	result->userdata = userdata; // probably should be assigned only once (allows the callback to change it)
 
 	SaveDataEntry save_entry;
 
@@ -351,9 +193,7 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		{
 			auto& dir = *dir_list++;
 			strcpy_trunc(dir.dirName, entry.dirName);
-			dir.dirName[31] = 0;
 			strcpy_trunc(dir.listParam, entry.listParam);
-			dir.listParam[7] = 0;
 			memset(dir.reserved, 0, sizeof(dir.reserved));
 		}
 
@@ -361,30 +201,12 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 
 		if (funcList)
 		{
-			//dump_userdata(userdata);
-			//dump_result(result);
-			//vm::var<CellSaveDataCBResult> result3;
-			//CELL_SAVEDATA_INVALIDMSG_MAX;
-			//result3->userdata = userdata;
-			result->userdata = userdata;
-			cellSaveData.error("funcList block begins");
-			result;
 			// List Callback
-			//std::unique_lock<std::mutex> lck(cellSaveMutex);
-			
 			funcList(ppu, result, listGet, listSet);
 
-			//cellSaveCond.wait(lck, [] {return cellSaveReady; });
-			//cellSaveReady = false;
-			//lck.unlock();
-
-			cellSaveData.error("after funcList callback");
-			dump_result(result);
-
-			//dump_result(result);
 			if (result->result < 0)
 			{
-				cellSaveData.fatal("savedata_op(): funcList returned < 0.");
+				cellSaveData.warning("savedata_op(): funcList returned < 0.");
 				return CELL_SAVEDATA_ERROR_CBRESULT;
 			}
 
@@ -470,12 +292,9 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 				return CELL_SAVEDATA_ERROR_PARAM;
 			}
 			}
-			//CELL_SAVEDATA_CBRESULT_OK_LAST
 
 			// Display Save Data List
-			cellSaveData.error("before show save data list begins");
 			selected = Emu.GetCallbacks().get_save_dialog()->ShowSaveDataList(save_entries, focused, listSet);
-			cellSaveData.error("after show begins");
 
 			if (selected == -1)
 			{
@@ -493,41 +312,11 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 				return CELL_OK;
 			}
 		}
-		cellSaveData.error("before funcFixed block");
+
 		if (funcFixed)
 		{
-			//dump_result(result);
-			//dump_userdata(userdata);
-			//vm::var<CellSaveDataCBResult> result2;
-			result->userdata = return_userdata(userdata);
-			//vm::var<CellSaveDataCBResult> result6;
-			//result6->userdata = userdata;
-			//vm::var<char> invalidMsgVar2;
-			//result->invalidMsg = invalidMsgVar2;
-			cellSaveData.error("funcFixed block begins");
-			// Fixed Callback+
-			dumpCellSaveDataListGet(listGet);
-			//vm::ptr<CellSaveDataFixedCallback>; void(vm::ptr<CellSaveDataCBResult> cbResult, vm::ptr<CellSaveDataListGet> get, vm::ptr<CellSaveDataFixedSet> set);
-			//vm::ptr<void((vm::ptr<CellSaveDataCBResult> cbResult, vm::ptr<CellSaveDataListGet> get, vm::ptr<CellSaveDataFixedSet> set)>
-			//vm::ptr<void> kupa = funcFixed;
-			vm::ptr<CellSaveDataListGet> DUPA = listGet;
-			cellSaveData.fatal("Poznajmy rozmiary 0x%x, 0x%x, 0x%x, 0x%x", sizeof(CellSaveDataCBResult), sizeof(CellSaveDataListGet), sizeof(CellSaveDataFixedSet), funcFixed);
-			
-			//std::unique_lock<std::mutex> lck(cellSaveMutex);
-			cellSaveData.fatal("After unique lock, registering callback");
-			//cellSysutilRegisterSaveCallback((s32)0, funcFixed,result_ptr,listGet_ptr,fixedSet_ptr);
-			funcFixed(ppu,result, listGet, fixedSet);
-			//cellSaveCond.wait(lck, [] {return cellSaveReady; });
-			
-			//funcFixed(ppu, result, listGet, fixedSet);
-			//
-			cellSaveReady = false;
-			//
-			cellSaveData.error("funcFixed after callback");
-			//cellSysutilUnregisterSaveCallback((u32)0);
-			//lck.unlock();
-			dump_result(result);
-			//result;
+			// Fixed Callback
+			funcFixed(ppu, result, listGet, fixedSet);
 
 			if (result->result < 0)
 			{
@@ -558,7 +347,6 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 				return CELL_OK;
 			}
 		}
-		cellSaveData.error("After funcFixed block");
 
 		if (selected >= 0)
 		{
@@ -578,7 +366,6 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		save_entry.dirName = dirName.get_ptr();
 	}
 
-	cellSaveData.error("loading param.sfo");
 	std::string dir_path = base_dir + save_entry.dirName + "/";
 	std::string sfo_path = dir_path + "PARAM.SFO";
 
@@ -593,7 +380,7 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		}
 
 		statGet->hddFreeSizeKB = 40 * 1024 * 1024; // 40 GB
-		statGet->isNewData = save_entry.isNew = psf.empty();//psf.empty();		//podejrzane
+		statGet->isNewData = save_entry.isNew = psf.empty();
 
 		statGet->dir.atime = save_entry.atime = dir_info.atime;
 		statGet->dir.mtime = save_entry.mtime = dir_info.mtime;
@@ -661,23 +448,10 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 				strcpy_trunc(file.fileName, entry.name);
 			}
 		}
-		dump_stat_get(*statGet);
-		cellSaveData.error("before funcStat block number of files 0x%x", statGet->fileNum);
+
 		// Stat Callback
-		
-		//vm::var<CellSaveDataCBResult> result5;
-		//result5->userdata = userdata;
-		//dump_result(result);
-		//std::unique_lock<std::mutex> lck(cellSaveMutex);
 		funcStat(ppu, result, statGet, statSet);
-		//cellSaveCond.wait(lck, [] {return cellSaveReady; });
-		//cellSaveReady = false;
-		//lck.unlock();
-		result;
 
-
-		cellSaveData.error("After funcstat block");
-		dump_result(result);
 		if (result->result < 0)
 		{
 			cellSaveData.warning("savedata_op(): funcStat returned 0x%x", result->result);
@@ -686,15 +460,14 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 
 		if (statSet->setParam)
 		{
-			cellSaveData.error("setting param.sfo block");
 			// Update PARAM.SFO
 			psf.insert(
 			{
 				{ "ACCOUNT_ID", psf::array(16, "0000000000000000") }, // ???
 				{ "ATTRIBUTE", statSet->setParam->attribute.value() },
 				{ "CATEGORY",  psf::string(4, "SD") }, // ???
-				{ "PARAMS", psf::string(16, {}) }, // ???
-				{ "PARAMS2", psf::string(16, {}) }, // ???
+				{ "PARAMS", psf::string(16,{}) }, // ???
+				{ "PARAMS2", psf::string(16,{}) }, // ???
 				{ "PARENTAL_LEVEL", 0 }, // ???
 				{ "DETAIL", psf::string(1024, statSet->setParam->detail) },
 				{ "SAVEDATA_DIRECTORY", psf::string(256, save_entry.dirName) },
@@ -705,7 +478,6 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		}
 		else if (psf.empty())
 		{
-			cellSaveData.error("empty param.sfo");
 			// setParam is NULL for new savedata: abort operation
 
 			return CELL_OK;
@@ -715,21 +487,18 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		{
 		case CELL_SAVEDATA_RECREATE_NO:
 		{
-			cellSaveData.error("CELL_SAVEDATA_RECREATE_NO case Savedata %s considered broken", save_entry.dirName);
+			cellSaveData.error("Savedata %s considered broken", save_entry.dirName);
 			// fallthrough
 		}
 
 		case CELL_SAVEDATA_RECREATE_NO_NOBROKEN:
 		{
-			cellSaveData.error("CELL_SAVEDATA_RECREATE_NO_NOBROKEN case");
 			break;
 		}
 
 		case CELL_SAVEDATA_RECREATE_YES:
-			cellSaveData.error("CELL_SAVEDATA_RECREATE_YES case");
 		case CELL_SAVEDATA_RECREATE_YES_RESET_OWNER:
 		{
-			cellSaveData.error("CELL_SAVEDATA_RECREATE_YES_RESET_OWNER cases");
 			// TODO?
 			for (const auto& entry : fs::dir(dir_path))
 			{
@@ -756,10 +525,6 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 			return CELL_SAVEDATA_ERROR_PARAM;
 		}
 		}
-		if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
-		{
-			return CELL_OK;
-		}
 	}
 
 	if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
@@ -771,36 +536,17 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 	if (psf.size() && save_entry.isNew && !fs::create_dir(dir_path))
 	{
 		// Let's ignore this error for now
-		cellSaveData.fatal("savedata_op(): failed to create %s", dir_path);
+		cellSaveData.warning("savedata_op(): failed to create %s", dir_path);
 	}
-
-	
 
 	// Enter the loop where the save files are read/created/deleted
 
 	fileGet->excSize = 0;
 	memset(fileGet->reserved, 0, sizeof(fileGet->reserved));
 
-	//vm::var<CellSaveDataCBResult> result2;
-	//result2->userdata = userdata;
-	//result2->userdata = userdata;
-	cellSaveData.error("before funcFile loop");
-	
 	while (funcFile)
 	{
-		//vm::var<CellSaveDataCBResult> result2;
-		cellSaveData.error("just before funcFile 0x%x, 0x%x", &fileGet, &fileSet);
-		
-
-		//dump_result(result);
-		//std::unique_lock<std::mutex> lck(cellSaveMutex);
 		funcFile(ppu, result, fileGet, fileSet);
-		//cellSaveCond.wait(lck, [] {return cellSaveReady; });
-		//cellSaveReady = false;
-		//lck.unlock();
-		cellSaveData.error("after funcFile callback");
-		//result;
-		dump_result(result);
 
 		if (result->result < 0)
 		{
@@ -902,18 +648,12 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 			return CELL_SAVEDATA_ERROR_PARAM;
 		}
 		}
-		if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
-		{
-			return CELL_OK;
-		}
 	}
-	cellSaveData.error("after funcFile loop");
+
 	// Write PARAM.SFO
 	if (psf.size())
 	{
-		cellSaveData.error("before saving param");
 		psf::save_object(fs::file(sfo_path, fs::rewrite), psf);
-		cellSaveData.error("after saving param");
 	}
 
 	return CELL_OK;
@@ -975,7 +715,7 @@ s32 cellSaveDataFixedLoad2(ppu_thread& ppu, u32 version, PSetList setList, PSetB
 	return savedata_op(ppu, SAVEDATA_OP_FIXED_LOAD, version, vm::null, 1, setList, setBuf, vm::null, funcFixed, funcStat, funcFile, container, 2, userdata, 0, vm::null);
 }
 
-s32 cellSaveDataFixedSave(ppu_thread& ppu, u32 version, PSetList setList, PSetBuf setBuf, PFuncFixed funcFixed, 
+s32 cellSaveDataFixedSave(ppu_thread& ppu, u32 version, PSetList setList, PSetBuf setBuf, PFuncFixed funcFixed,
 	PFuncStat funcStat, PFuncFile funcFile, u32 container)
 {
 	cellSaveData.warning("cellSaveDataFixedSave(version=%d, setList=*0x%x, setBuf=*0x%x, funcFixed=*0x%x, funcStat=*0x%x, funcFile=*0x%x, container=0x%x)",
@@ -1186,7 +926,7 @@ s32 cellSaveDataFixedExport(ppu_thread& ppu, vm::cptr<char> dirName, u32 maxSize
 
 s32 cellSaveDataGetListItem(vm::cptr<char> dirName, vm::ptr<CellSaveDataDirStat> dir, vm::ptr<CellSaveDataSystemFileParam> sysFileParam, vm::ptr<u32> bind, vm::ptr<u32> sizeKB)
 {
-	//UNIMPLEMENTED_FUNC(cellSaveData);
+	UNIMPLEMENTED_FUNC(cellSaveData);
 
 	return CELL_OK;
 }

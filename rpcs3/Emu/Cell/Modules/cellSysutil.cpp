@@ -255,9 +255,6 @@ s32 cellSysutilCheckCallback(ppu_thread& ppu)
 		/*	std::mutex cellSaveMutex;
 			std::condition_variable cellSaveCond;
 			bool cellSaveReady = true;*/
-			std::lock_guard<std::mutex> guard(cellSaveMutex);
-			cellSaveReady = true;
-			cellSaveCond.notify_all();
 			
 
 			return res;
