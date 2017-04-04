@@ -43,6 +43,23 @@ enum : u32
 	SAVEDATA_OP_FIXED_DELETE = 14,
 };
 
+namespace
+{
+	struct savedata_context
+	{
+		CellSaveDataCBResult result;
+		CellSaveDataListGet  listGet;
+		CellSaveDataListSet  listSet;
+		CellSaveDataFixedSet fixedSet;
+		CellSaveDataStatGet  statGet;
+		CellSaveDataStatSet  statSet;
+		CellSaveDataFileGet  fileGet;
+		CellSaveDataFileSet  fileSet;
+	};
+}
+
+vm::gvar<savedata_context> g_savedata_context;
+
 std::mutex g_savedata_mutex;
 std::mutex cellSaveMutex;
 std::condition_variable cellSaveCond;
@@ -174,6 +191,7 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		return CELL_SAVEDATA_ERROR_BUSY;
 	}
 
+<<<<<<< HEAD
 	
 	//dump_userdata(userdata);
 	cellSaveData.fatal("fcuk ppu %s", ppu.get_name());
@@ -210,6 +228,16 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 	cellSaveData.fatal("THIS IS SPARTAAAAAAA\n");
 
 
+	*g_savedata_context = {};
+
+	vm::ptr<CellSaveDataCBResult> result   = g_savedata_context.ptr(&savedata_context::result);
+	vm::ptr<CellSaveDataListGet>  listGet  = g_savedata_context.ptr(&savedata_context::listGet);
+	vm::ptr<CellSaveDataListSet>  listSet  = g_savedata_context.ptr(&savedata_context::listSet);
+	vm::ptr<CellSaveDataFixedSet> fixedSet = g_savedata_context.ptr(&savedata_context::fixedSet);
+	vm::ptr<CellSaveDataStatGet>  statGet  = g_savedata_context.ptr(&savedata_context::statGet);
+	vm::ptr<CellSaveDataStatSet>  statSet  = g_savedata_context.ptr(&savedata_context::statSet);
+	vm::ptr<CellSaveDataFileGet>  fileGet  = g_savedata_context.ptr(&savedata_context::fileGet);
+	vm::ptr<CellSaveDataFileSet>  fileSet  = g_savedata_context.ptr(&savedata_context::fileSet);
 
 	// path of the specified user (00000001 by default)
 	const std::string& base_dir = vfs::get(fmt::format("/dev_hdd0/home/%08u/savedata/", userId ? userId : 1u));
@@ -460,7 +488,7 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 					return CELL_OK; // ???
 				}
 			}
-			if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST)||(result->result==CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
+			if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
 			{
 				return CELL_OK;
 			}
@@ -525,7 +553,6 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 			{
 				save_entry.dirName = fixedSet->dirName.get_ptr();
 			}
-			cellSaveData.error("funcFixed block ends");
 			if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
 			{
 				return CELL_OK;
@@ -733,6 +760,11 @@ static NEVER_INLINE s32 savedata_op(ppu_thread& ppu, u32 operation, u32 version,
 		{
 			return CELL_OK;
 		}
+	}
+
+	if ((result->result == CELL_SAVEDATA_CBRESULT_OK_LAST) || (result->result == CELL_SAVEDATA_CBRESULT_OK_LAST_NOCONFIRM))
+	{
+		return CELL_OK;
 	}
 
 	// Create save directory if necessary
@@ -1203,6 +1235,8 @@ s32 cellSaveDataUserGetListItem(u32 userId, vm::cptr<char> dirName, vm::ptr<Cell
 
 void cellSysutil_SaveData_init()
 {
+	REG_VNID(cellSysutil, 0x00000000, g_savedata_context);
+
 	// libsysutil functions:
 	REG_FUNC(cellSysutil, cellSaveDataEnableOverlay);
 
