@@ -215,11 +215,7 @@ s32 cellGameDataGetSizeKB(vm::ptr<u32> size)
 		return CELL_GAMEDATA_ERROR_FAILURE;
 	}
 
-<<<<<<< HEAD
-	*size = (u32)fs::get_dir_size(local_dir);		//conversion warning
-=======
 	*size = (u32)(fs::get_dir_size(local_dir)/1024);
->>>>>>> refs/remotes/origin/master
 
 	return CELL_OK;
 
@@ -734,11 +730,8 @@ s32 cellGameGetSizeKB(vm::ptr<s32> size)
 		return CELL_GAME_ERROR_FAILURE;
 	}
 
-<<<<<<< HEAD
-	*size = (u32)fs::get_dir_size(local_dir);		//conversion warning
-=======
+
 	*size = (u32)(fs::get_dir_size(local_dir)/1024);
->>>>>>> refs/remotes/origin/master
 
 	return CELL_OK;
 }
