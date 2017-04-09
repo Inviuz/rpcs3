@@ -186,6 +186,11 @@ s32 sys_game_watchdog_stop()
 	fmt::throw_exception("Unimplemented" HERE);
 }
 
+s32 sysPrxForUser_9FB6228()
+{
+	fmt::throw_exception("Unimplemented" HERE);
+}
+
 
 void sysPrxForUser_sys_game_init()
 {
@@ -199,4 +204,5 @@ void sysPrxForUser_sys_game_init()
 	REG_FUNC(sysPrxForUser, sys_game_watchdog_clear);
 	REG_FUNC(sysPrxForUser, sys_game_watchdog_start);
 	REG_FUNC(sysPrxForUser, sys_game_watchdog_stop);
+	REG_FNID(sysPrxForUser, 0x9FB6228E, sysPrxForUser_9FB6228);
 }
