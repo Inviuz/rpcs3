@@ -55,6 +55,8 @@ s32 sys_prx_load_module_list(s32 count, vm::cpptr<char> path_list, u64 flags, vm
 	for (s32 i = 0; i < count; ++i)
 	{
 		auto path = path_list[i];
+		if (!path_list[i])
+			continue;
 		std::string name = path.get_ptr();
 		s32 result = prx_load_module(name, flags, pOpt);
 
@@ -195,7 +197,7 @@ s32 sys_prx_get_ppu_guid()
 	return CELL_OK;
 }
 
-s32 sys_prx_register_module()
+s32 sys_prx_register_module(vm::cptr<char> name, vm::ptr<sys_prx_register_module_option_t> pOpt)
 {
 	sys_prx.todo("sys_prx_register_module()");
 	return CELL_OK;
