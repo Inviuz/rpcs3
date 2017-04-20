@@ -241,10 +241,10 @@ error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ptr<sys_prx_unload_modu
 	return CELL_OK;
 }
 
-error_code _sys_prx_register_module()
+error_code _sys_prx_register_module(vm::ptr<char> name, vm::cptr<u32> pOpt) //sys_prx_register_module_option_t
 {
-	sys_prx.todo("_sys_prx_register_module()");
-	return CELL_OK;
+	sys_prx.todo("_sys_prx_register_module(name = %s, pOpt=*0x%x)",name,pOpt);
+	return -1;
 }
 
 error_code _sys_prx_query_module()
@@ -283,8 +283,27 @@ error_code _sys_prx_query_library()
 	return CELL_OK;
 }
 
-error_code _sys_prx_get_module_list(u64 flags, vm::ptr<sys_prx_get_module_list_option_t> pInfo)
+error_code _sys_prx_get_module_list(u64 flags, vm::ptr<sys_prx_get_module_list_t> pInfo)
 {
+
+	//be_t<u64> size; // 0x20
+	//be_t<u32> pad;
+	//be_t<u32> max;
+	//be_t<u32> count;
+	//vm::ps3::bptr<u32> idlist;
+	//be_t<u32> unk; // 0
+	vm::var<u32,vm::page_allocator<>> idlist2;
+	*idlist2 = 0x23000b00;
+	pInfo->size = 0x1;
+	pInfo->count = 1;
+	pInfo->max = 0x20;
+	if (pInfo->idlist)
+	{
+		sys_prx.fatal("NOT NULL");
+		*(pInfo->idlist) = 0x23000b00;
+	}
+	pInfo->idlist = idlist2;
+	
 	sys_prx.todo("_sys_prx_get_module_list(flags=%d, pInfo=*0x%x)", flags, pInfo);
 	return CELL_OK;
 }

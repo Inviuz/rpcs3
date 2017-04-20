@@ -108,6 +108,14 @@ struct sys_prx_get_module_list_option_t
 	be_t<u32> unk; // 0
 };
 
+//struct sys_prx_get_module_list_t
+//{
+//	be_t<u64> size;
+//	be_t<u32> max;
+//	be_t<u32> count;
+//	vm::ps3::bptr<u32> idList;
+//};
+
 struct lv2_prx final : lv2_obj, ppu_module
 {
 	static const u32 id_base = 0x23000000;
@@ -133,14 +141,14 @@ error_code _sys_prx_load_module(vm::ps3::cptr<char> path, u64 flags, vm::ps3::pt
 error_code _sys_prx_start_module(u32 id, u64 flags, vm::ps3::ptr<sys_prx_start_stop_module_option_t> pOpt);
 error_code _sys_prx_stop_module(u32 id, u64 flags, vm::ps3::ptr<sys_prx_start_stop_module_option_t> pOpt);
 error_code _sys_prx_unload_module(u32 id, u64 flags, vm::ps3::ptr<sys_prx_unload_module_option_t> pOpt);
-error_code _sys_prx_register_module();
+error_code _sys_prx_register_module(vm::ps3::ptr<char> name, vm::ps3::cptr<u32> pOpt);
 error_code _sys_prx_query_module();
 error_code _sys_prx_register_library(vm::ps3::ptr<void> library);
 error_code _sys_prx_unregister_library(vm::ps3::ptr<void> library);
 error_code _sys_prx_link_library();
 error_code _sys_prx_unlink_library();
 error_code _sys_prx_query_library();
-error_code _sys_prx_get_module_list(u64 flags, vm::ps3::ptr<sys_prx_get_module_list_option_t> pInfo);
+error_code _sys_prx_get_module_list(u64 flags, vm::ps3::ptr<sys_prx_get_module_list_t> pInfo);
 error_code _sys_prx_get_module_info(u32 id, u64 flags, vm::ps3::ptr<sys_prx_module_info_option_t> pOpt);
 error_code _sys_prx_get_module_id_by_name(vm::ps3::cptr<char> name, u64 flags, vm::ps3::ptr<sys_prx_get_module_id_by_name_option_t> pOpt);
 error_code _sys_prx_get_module_id_by_address(u32 addr);

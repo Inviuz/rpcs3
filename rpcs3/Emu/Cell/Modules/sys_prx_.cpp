@@ -184,12 +184,12 @@ error_code sys_prx_get_module_list(ppu_thread& ppu, u64 flags, vm::ptr<sys_prx_g
 	}
 
 	// Initialize params
-	vm::var<sys_prx_get_module_list_option_t> opt;
+	vm::var<sys_prx_get_module_list_t> opt;
 	opt->size   = opt.size();
 	opt->max    = info->max;
 	opt->count  = 0;
 	opt->idlist = info->idlist;
-	opt->unk    = 0;
+	//opt->unk    = 0;
 
 	// Call the syscall
 	const s32 res = _sys_prx_get_module_list(2, opt);

@@ -769,6 +769,8 @@ namespace sys_net
 		}
 		else if (type == SOCK_DGRAM_P2P)
 		{
+			get_errno() = SYS_NET_EPROTONOSUPPORT;
+			return -1;
 			libnet.warning("SOCK_DGRAM_P2P is not properly implemented.");
 			type = SOCK_DGRAM;
 		}
