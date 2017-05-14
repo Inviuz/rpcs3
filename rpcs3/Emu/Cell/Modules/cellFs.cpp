@@ -666,8 +666,8 @@ s32 cellFsStReadInit(u32 fd, vm::cptr<CellFsRingBuffer> ringbuf)
 		return CELL_EPERM;
 	}
 
-	file->file.seek(offset);
-	size_to_read = size;
+	//file->file.seek(offset);
+	//size_to_read = size;
 
 	// TODO
 
@@ -700,7 +700,7 @@ s32 cellFsStReadGetRingBuf(u32 fd, vm::ptr<CellFsRingBuffer> ringbuf)
 	{
 		return CELL_EBADF;
 	}
-	*rsize = file->op_read(buf, size);
+	//*rsize = file->op_read(buf, size);
 
 
 	// TODO
