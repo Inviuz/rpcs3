@@ -4,10 +4,25 @@
 
 #include "Emu/Cell/ErrorCodes.h"
 #include "sys_rsx.h"
+#include "Emu/System.h"
+#include "Emu/Cell/PPUModule.h"
 
 namespace vm { using namespace ps3; }
 
 logs::channel sys_rsx("sys_rsx", logs::level::notice);
+
+namespace
+{
+	struct lpar_context
+	{
+		be_t<u64> lparversion;
+	};
+}
+
+//vm::gvar<u32> g_lpar_driver_inf;
+vm::gvar<lpar_context> g_lpar_driver_inf;
+
+
 
 s32 sys_rsx_device_open()
 {
@@ -36,6 +51,8 @@ s32 sys_rsx_device_close()
 s32 sys_rsx_memory_allocate(vm::ptr<u32> mem_handle, vm::ptr<u64> mem_addr, u32 size, u64 flags, u64 a5, u64 a6, u64 a7)
 {
 	sys_rsx.todo("sys_rsx_memory_allocate(mem_handle=*0x%x, mem_addr=*0x%x, size=0x%x, flags=0x%llx, a5=0x%llx, a6=0x%llx, a7=0x%llx)", mem_handle, mem_addr, size, flags, a5, a6, a7);
+	*mem_handle = 1;
+	*mem_addr = 0xC0000000;
 
 	return CELL_OK;
 }
@@ -60,10 +77,24 @@ s32 sys_rsx_memory_free(u32 mem_handle)
  * @param mem_ctx (IN): mem_ctx given by sys_rsx_memory_allocate
  * @param system_mode (IN):
  */
-s32 sys_rsx_context_allocate(vm::ptr<u32> context_id, vm::ptr<u32> lpar_dma_control, vm::ptr<u32> lpar_driver_info, vm::ptr<u32> lpar_reports, u64 mem_ctx, u64 system_mode)
+s32 sys_rsx_context_allocate(vm::ptr<u32> context_id, vm::ptr<u32> lpar_dma_control, vm::ptr<u64> lpar_driver_info, vm::ptr<u32> lpar_reports, u64 mem_ctx, u64 system_mode)
 {
 	sys_rsx.todo("sys_rsx_context_allocate(context_id=*0x%x, lpar_dma_control=*0x%x, lpar_driver_info=*0x%x, lpar_reports=*0x%x, mem_ctx=0x%llx, system_mode=0x%llx)",
 		context_id, lpar_dma_control, lpar_driver_info, lpar_reports, mem_ctx, system_mode);
+
+	//*g_lpar_driver_inf = {};
+	//vm::var<u64> lpar_driver_inf = 0x211d0100918;
+	//*lpar_driver_info = lpar_driver_inf.addr();
+	*context_id = 2;
+	*lpar_dma_control = 0x60100000;
+	*lpar_reports = 0x60300000;
+	*lpar_driver_info = 0x211d0100918; //d0100918
+
+	//*g_lpar_driver_inf = 0x211;
+	//lpar_driver_info = g_lpar_driver_inf.ptr(&lpar_context::lparversion);
+	
+	//*lpar_driver_info = lpar_driver_inf.addr();
+
 
 	return CELL_OK;
 }
