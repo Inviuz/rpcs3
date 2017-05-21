@@ -1,5 +1,4 @@
 ﻿#include "stdafx.h"
-#include "Utilities/Config.h"
 #include "Utilities/VirtualMemory.h"
 #include "Crypto/sha1.h"
 #include "Crypto/unself.h"
@@ -19,128 +18,6 @@
 
 namespace vm { using namespace ps3; }
 
-LOG_CHANNEL(cellAdec);
-LOG_CHANNEL(cellAtrac);
-LOG_CHANNEL(cellAtracMulti);
-LOG_CHANNEL(cellAudio);
-LOG_CHANNEL(cellAvconfExt);
-LOG_CHANNEL(cellBGDL);
-LOG_CHANNEL(cellCamera);
-LOG_CHANNEL(cellCelp8Enc);
-LOG_CHANNEL(cellCelpEnc);
-LOG_CHANNEL(cellCrossController);
-LOG_CHANNEL(cellDaisy);
-LOG_CHANNEL(cellDmux);
-LOG_CHANNEL(cellFiber);
-LOG_CHANNEL(cellFont);
-LOG_CHANNEL(cellFontFT);
-LOG_CHANNEL(cell_FreeType2);
-LOG_CHANNEL(cellFs);
-LOG_CHANNEL(cellGame);
-LOG_CHANNEL(cellGameExec);
-LOG_CHANNEL(cellGcmSys);
-LOG_CHANNEL(cellGem);
-LOG_CHANNEL(cellGifDec);
-LOG_CHANNEL(cellHttp);
-LOG_CHANNEL(cellHttpUtil);
-LOG_CHANNEL(cellImeJp);
-LOG_CHANNEL(cellJpgDec);
-LOG_CHANNEL(cellJpgEnc);
-LOG_CHANNEL(cellKey2char);
-LOG_CHANNEL(cellL10n);
-LOG_CHANNEL(cellLibprof);
-LOG_CHANNEL(cellMic);
-LOG_CHANNEL(cellMusic);
-LOG_CHANNEL(cellMusicDecode);
-LOG_CHANNEL(cellMusicExport);
-LOG_CHANNEL(cellNetCtl);
-LOG_CHANNEL(cellOskDialog);
-LOG_CHANNEL(cellOvis);
-LOG_CHANNEL(cellPamf);
-LOG_CHANNEL(cellPhotoDecode);
-LOG_CHANNEL(cellPhotoExport);
-LOG_CHANNEL(cellPhotoImportUtil);
-LOG_CHANNEL(cellPngDec);
-LOG_CHANNEL(cellPngEnc);
-LOG_CHANNEL(cellPrint);
-LOG_CHANNEL(cellRec);
-LOG_CHANNEL(cellRemotePlay);
-LOG_CHANNEL(cellResc);
-LOG_CHANNEL(cellRtc);
-LOG_CHANNEL(cellRtcAlarm);
-LOG_CHANNEL(cellRudp);
-LOG_CHANNEL(cellSail);
-LOG_CHANNEL(cellSailRec);
-LOG_CHANNEL(cellSaveData);
-LOG_CHANNEL(cellScreenshot);
-LOG_CHANNEL(cellSearch);
-LOG_CHANNEL(cellSheap);
-LOG_CHANNEL(cellSpudll);
-LOG_CHANNEL(cellSpurs);
-LOG_CHANNEL(cellSpursJq);
-LOG_CHANNEL(cellSsl);
-LOG_CHANNEL(cellSubdisplay);
-LOG_CHANNEL(cellSync);
-LOG_CHANNEL(cellSync2);
-LOG_CHANNEL(cellSysconf);
-LOG_CHANNEL(cellSysmodule);
-LOG_CHANNEL(cellSysutil);
-LOG_CHANNEL(cellSysutilAp);
-LOG_CHANNEL(cellSysutilAvc);
-LOG_CHANNEL(cellSysutilAvc2);
-LOG_CHANNEL(cellSysutilMisc);
-LOG_CHANNEL(cellSysutilNpEula);
-LOG_CHANNEL(cellUsbd);
-LOG_CHANNEL(cellUsbPspcm);
-LOG_CHANNEL(cellUserInfo);
-LOG_CHANNEL(cellVdec);
-LOG_CHANNEL(cellVideoExport);
-LOG_CHANNEL(cellVideoUpload);
-LOG_CHANNEL(cellVoice);
-LOG_CHANNEL(cellVpost);
-LOG_CHANNEL(libmedi);
-LOG_CHANNEL(libmixer);
-LOG_CHANNEL(libsnd3);
-LOG_CHANNEL(libsynth2);
-LOG_CHANNEL(sceNp);
-LOG_CHANNEL(sceNp2);
-LOG_CHANNEL(sceNpClans);
-LOG_CHANNEL(sceNpCommerce2);
-LOG_CHANNEL(sceNpSns);
-LOG_CHANNEL(sceNpTrophy);
-LOG_CHANNEL(sceNpTus);
-LOG_CHANNEL(sceNpUtil);
-LOG_CHANNEL(sys_io);
-LOG_CHANNEL(sys_libc);
-LOG_CHANNEL(sys_lv2dbg);
-LOG_CHANNEL(libnet);
-LOG_CHANNEL(sysPrxForUser);
-#ifdef WITH_GDB_DEBUGGER
-LOG_CHANNEL(gdbDebugServer);
-#endif
-
-enum class lib_loader_mode
-{
-	automatic,
-	manual,
-	both,
-	liblv2only
-};
-
-cfg::map_entry<lib_loader_mode> g_cfg_lib_loader(cfg::root.core, "Lib Loader", 3,
-{
-	{ "Automatically load required libraries", lib_loader_mode::automatic },
-	{ "Manually load selected libraries", lib_loader_mode::manual },
-	{ "Load automatic and manual selection", lib_loader_mode::both },
-	{ "Load liblv2.sprx only", lib_loader_mode::liblv2only },
-});
-
-cfg::bool_entry g_cfg_hook_ppu_funcs(cfg::root.core, "Hook static functions");
-
-cfg::set_entry g_cfg_load_libs(cfg::root.core, "Load libraries");
-
-extern cfg::map_entry<ppu_decoder_type> g_cfg_ppu_decoder;
-
 extern void ppu_initialize_syscalls();
 extern std::string ppu_get_function_name(const std::string& module, u32 fnid);
 extern std::string ppu_get_variable_name(const std::string& module, u32 vnid);
@@ -155,6 +32,23 @@ extern u32 g_ps3_sdk_version;
 
 // HLE function name cache
 std::vector<std::string> g_ppu_function_names;
+
+template <>
+void fmt_class_string<lib_loading_type>::format(std::string& out, u64 arg)
+{
+	format_enum(out, arg, [](lib_loading_type value)
+	{
+		switch (value)
+		{
+		case lib_loading_type::automatic: return "Automatically load required libraries";
+		case lib_loading_type::manual: return "Manually load selected libraries";
+		case lib_loading_type::both: return "Load automatic and manual selection";
+		case lib_loading_type::liblv2only: return "Load liblv2.sprx only";
+		}
+
+		return unknown;
+	});
+}
 
 extern u32 ppu_generate_id(const char* name)
 {
@@ -727,7 +621,7 @@ static void ppu_load_imports(const std::shared_ptr<ppu_linkage_info>& link, u32 
 
 std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::string& name)
 {
-	if (g_cfg_ppu_decoder.get() == ppu_decoder_type::llvm && name == "libfiber.sprx")
+	if (g_cfg.core.ppu_decoder == ppu_decoder_type::llvm && name == "libfiber.sprx")
 	{
 		LOG_FATAL(PPU, "libfiber.sprx is not compatible with PPU LLVM Recompiler. Use PPU Interpreter.");
 		Emu.Pause();
@@ -933,7 +827,7 @@ std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object& elf, const std::stri
 
 void ppu_load_exec(const ppu_exec_object& elf)
 {
-	if (g_cfg_hook_ppu_funcs)
+	if (g_cfg.core.hook_functions)
 	{
 		LOG_TODO(LOADER, "'Hook static functions' option deactivated");
 	}
@@ -1114,17 +1008,18 @@ void ppu_load_exec(const ppu_exec_object& elf)
 	// Get LLE module list
 	std::set<std::string> load_libs;
 
-	if (g_cfg_lib_loader.get() == lib_loader_mode::manual || g_cfg_lib_loader.get() == lib_loader_mode::both)
+	if (g_cfg.core.lib_loading == lib_loading_type::manual || g_cfg.core.lib_loading == lib_loading_type::both)
 	{
 		// Load required set of modules
-		load_libs = g_cfg_load_libs.get_set();
+		load_libs = g_cfg.core.load_libraries.get_set();
 	}
-	else if (g_cfg_lib_loader.get() == lib_loader_mode::liblv2only)
+	else if (g_cfg.core.lib_loading == lib_loading_type::liblv2only)
 	{
 		// Load only liblv2.sprx
 		load_libs.emplace("liblv2.sprx");
 	}
-	if (g_cfg_lib_loader.get() == lib_loader_mode::automatic || g_cfg_lib_loader.get() == lib_loader_mode::both)
+
+	if (g_cfg.core.lib_loading == lib_loading_type::automatic || g_cfg.core.lib_loading == lib_loading_type::both)
 	{
 		// Load recommended set of modules: Module name -> SPRX
 		std::unordered_multimap<std::string, std::string> sprx_map
@@ -1328,7 +1223,7 @@ void ppu_load_exec(const ppu_exec_object& elf)
 	// TODO: adjust for liblv2 loading option
 	u32 entry = static_cast<u32>(elf.header.e_entry);
 
-	if (g_cfg_lib_loader.get() != lib_loader_mode::liblv2only)
+	if (g_cfg.core.lib_loading != lib_loading_type::liblv2only)
 	{
 		// Set TLS args, call sys_initialize_tls
 		ppu->cmd_list

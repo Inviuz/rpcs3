@@ -14,7 +14,7 @@ namespace vm { using namespace ps3; }
 extern std::shared_ptr<lv2_prx> ppu_load_prx(const ppu_prx_object&, const std::string&);
 extern void ppu_initialize(const ppu_module&);
 
-logs::channel sys_prx("sys_prx", logs::level::notice);
+logs::channel sys_prx("sys_prx");
 
 static const std::unordered_map<std::string, int> s_prx_ignore
 {
@@ -69,6 +69,8 @@ static const std::unordered_map<std::string, int> s_prx_ignore
 	{ "/dev_flash/sys/external/libsysutil_rec.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_remoteplay.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_rtcalarm.sprx", 0 },
+	{ "/dev_flash/sys/external/libsysutil_savedata.sprx", 0 },
+	{ "/dev_flash/sys/external/libsysutil_savedata_psp.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_screenshot.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_search.sprx", 0 },
 	{ "/dev_flash/sys/external/libsysutil_storagedata.sprx", 0 },

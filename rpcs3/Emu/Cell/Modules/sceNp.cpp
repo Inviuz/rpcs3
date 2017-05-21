@@ -9,7 +9,7 @@
 #include "cellRtc.h"
 #include "sceNp.h"
 
-logs::channel sceNp("sceNp", logs::level::notice);
+logs::channel sceNp("sceNp");
 
 s32 g_psn_connection_status = SCE_NP_MANAGER_STATUS_OFFLINE;
 
@@ -83,6 +83,9 @@ s32 npDrmIsAvailable(vm::cptr<u8> k_licensee_addr, vm::cptr<char> drm_path)
 
 	if (magic == "SCE\0"_u32)
 	{
+		if (k_licensee_addr == vm::null)
+			k_licensee = get_default_self_klic();
+
 		if (verify_npdrm_self_headers(enc_file, k_licensee.data()))
 		{
 			npdrmkeys->devKlic = std::move(k_licensee);

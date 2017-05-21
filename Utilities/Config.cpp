@@ -5,9 +5,9 @@
 
 namespace cfg
 {
-	logs::channel cfg("CFG", logs::level::notice);
+	logs::channel cfg("CFG");
 
-	entry_base::entry_base(type _type)
+	_base::_base(type _type)
 		: m_type(_type)
 	{
 		if (_type != type::node)
@@ -16,51 +16,36 @@ namespace cfg
 		}
 	}
 
-	entry_base::entry_base(type _type, node& owner, const std::string& name)
+	_base::_base(type _type, node* owner, const std::string& name)
 		: m_type(_type)
 	{
-		if (!owner.m_nodes.emplace(name, this).second)
+		for (const auto& pair : owner->m_nodes)
 		{
-			fmt::throw_exception<std::logic_error>("Node already exists: %s" HERE, name);
-		}
-	}
-
-	entry_base& entry_base::operator[](const std::string& name) const
-	{
-		if (m_type == type::node)
-		{
-			return *static_cast<const node&>(*this).m_nodes.at(name);
+			if (pair.first == name)
+			{
+				fmt::throw_exception<std::logic_error>("Node already exists: %s" HERE, name);
+			}
 		}
 
-		fmt::throw_exception<std::logic_error>("Invalid node type" HERE);
+		owner->m_nodes.emplace_back(name, this);
 	}
 
-	entry_base& entry_base::operator[](const char* name) const
-	{
-		if (m_type == type::node)
-		{
-			return *static_cast<const node&>(*this).m_nodes.at(name);
-		}
-
-		fmt::throw_exception<std::logic_error>("Invalid node type" HERE);
-	}
-
-	bool entry_base::from_string(const std::string&)
+	bool _base::from_string(const std::string&)
 	{
 		fmt::throw_exception<std::logic_error>("from_string() purecall" HERE);
 	}
 
-	bool entry_base::from_list(std::vector<std::string>&&)
+	bool _base::from_list(std::vector<std::string>&&)
 	{
 		fmt::throw_exception<std::logic_error>("from_list() purecall" HERE);
 	}
 
 	// Emit YAML
-	static void encode(YAML::Emitter& out, const class entry_base& rhs);
+	static void encode(YAML::Emitter& out, const class _base& rhs);
 
 	// Incrementally load config entries from YAML::Node.
 	// The config value is preserved if the corresponding YAML node doesn't exist.
-	static void decode(const YAML::Node& data, class entry_base& rhs);
+	static void decode(const YAML::Node& data, class _base& rhs);
 }
 
 bool cfg::try_to_int64(s64* out, const std::string& value, s64 min, s64 max)
@@ -118,7 +103,13 @@ bool cfg::try_to_enum_value(u64* out, decltype(&fmt_class_string<int>::format) f
 
 	try
 	{
-		const auto val = std::stoull(value, nullptr, 0);
+		std::size_t pos;
+		const auto val = std::stoull(value, &pos, 0);
+
+		if (pos != value.size())
+		{
+			return false;
+		}
 
 		if (out) *out = val;
 		return true;
@@ -151,7 +142,7 @@ std::vector<std::string> cfg::try_to_enum_list(decltype(&fmt_class_string<int>::
 	return result;
 }
 
-void cfg::encode(YAML::Emitter& out, const cfg::entry_base& rhs)
+void cfg::encode(YAML::Emitter& out, const cfg::_base& rhs)
 {
 	switch (rhs.get_type())
 	{
@@ -161,7 +152,8 @@ void cfg::encode(YAML::Emitter& out, const cfg::entry_base& rhs)
 		for (const auto& np : static_cast<const node&>(rhs).get_nodes())
 		{
 			out << YAML::Key << np.first;
-			out << YAML::Value; encode(out, *np.second);
+			out << YAML::Value;
+			encode(out, *np.second);
 		}
 
 		out << YAML::EndMap;
@@ -178,12 +170,25 @@ void cfg::encode(YAML::Emitter& out, const cfg::entry_base& rhs)
 		out << YAML::EndSeq;
 		return;
 	}
+	case type::log:
+	{
+		out << YAML::BeginMap;
+		for (const auto& np : static_cast<const log_entry&>(rhs).get_map())
+		{
+			if (np.second == logs::level::notice) continue;
+			out << YAML::Key << np.first;
+			out << YAML::Value << fmt::format("%s", np.second);
+		}
+
+		out << YAML::EndMap;
+		return;
+	}
 	}
 
 	out << rhs.to_string();
 }
 
-void cfg::decode(const YAML::Node& data, cfg::entry_base& rhs)
+void cfg::decode(const YAML::Node& data, cfg::_base& rhs)
 {
 	switch (rhs.get_type())
 	{
@@ -199,16 +204,12 @@ void cfg::decode(const YAML::Node& data, cfg::entry_base& rhs)
 			if (!pair.first.IsScalar()) continue;
 
 			// Find the key among existing nodes
-			const auto name = pair.first.Scalar();
-			const auto found = static_cast<node&>(rhs).get_nodes().find(name);
-
-			if (found != static_cast<node&>(rhs).get_nodes().cend())
+			for (const auto& _pair : static_cast<node&>(rhs).get_nodes())
 			{
-				decode(pair.second, *found->second);
-			}
-			else
-			{
-				// ???
+				if (_pair.first == pair.first.Scalar())
+				{
+					decode(pair.second, *_pair.second);
+				}
 			}
 		}
 
@@ -223,6 +224,29 @@ void cfg::decode(const YAML::Node& data, cfg::entry_base& rhs)
 			rhs.from_list(std::move(values));
 		}
 
+		break;
+	}
+	case type::log:
+	{
+		if (data.IsScalar() || data.IsSequence())
+		{
+			return; // ???
+		}
+
+		std::map<std::string, logs::level> values;
+
+		for (const auto& pair : data)
+		{
+			if (!pair.first.IsScalar() || !pair.second.IsScalar()) continue;
+
+			u64 value;
+			if (cfg::try_to_enum_value(&value, &fmt_class_string<logs::level>::format, pair.second.Scalar()))
+			{
+				values.emplace(pair.first.Scalar(), static_cast<logs::level>(static_cast<int>(value)));
+			}
+		}
+
+		static_cast<log_entry&>(rhs).set_map(std::move(values));
 		break;
 	}
 	default:
@@ -261,25 +285,32 @@ void cfg::node::from_default()
 	}
 }
 
-void cfg::bool_entry::from_default()
+void cfg::_bool::from_default()
 {
-	value = def;
+	m_value = def;
 }
 
-void cfg::string_entry::from_default()
+void cfg::string::from_default()
 {
-	*this = def;
+	m_value = def;
 }
 
 void cfg::set_entry::from_default()
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
 	m_set = {};
 }
 
-cfg::root_node& cfg::get_root()
+void cfg::log_entry::set_map(std::map<std::string, logs::level>&& map)
 {
-	// Magic static
-	static root_node root;
-	return root;
+	logs::reset();
+
+	for (auto&& pair : (m_map = std::move(map)))
+	{
+		logs::set_level(pair.first, pair.second);
+	}
+}
+
+void cfg::log_entry::from_default()
+{
+	set_map({});
 }

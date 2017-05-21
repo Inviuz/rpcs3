@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "Utilities/Config.h"
 #include "Emu/System.h"
 
 #include "Emu/Cell/PPUFunction.h"
@@ -31,31 +30,6 @@
 #include "sys_dbg.h"
 #include "sys_gamepad.h"
 #include "sys_ss.h"
-
-LOG_CHANNEL(sys_cond);
-LOG_CHANNEL(sys_dbg);
-LOG_CHANNEL(sys_event);
-LOG_CHANNEL(sys_event_flag);
-LOG_CHANNEL(sys_fs);
-LOG_CHANNEL(sys_interrupt);
-LOG_CHANNEL(sys_lwcond);
-LOG_CHANNEL(sys_lwmutex);
-LOG_CHANNEL(sys_memory);
-LOG_CHANNEL(sys_mmapper);
-LOG_CHANNEL(sys_mutex);
-LOG_CHANNEL(sys_ppu_thread);
-LOG_CHANNEL(sys_process);
-LOG_CHANNEL(sys_prx);
-LOG_CHANNEL(sys_rsx);
-LOG_CHANNEL(sys_rwlock);
-LOG_CHANNEL(sys_semaphore);
-LOG_CHANNEL(sys_spu);
-LOG_CHANNEL(sys_time);
-LOG_CHANNEL(sys_timer);
-LOG_CHANNEL(sys_trace);
-LOG_CHANNEL(sys_tty);
-LOG_CHANNEL(sys_vm);
-LOG_CHANNEL(sys_gamepad);
 
 extern std::string ppu_get_syscall_name(u64 code);
 
@@ -1030,9 +1004,6 @@ DECLARE(lv2_obj::g_ppu);
 DECLARE(lv2_obj::g_pending);
 DECLARE(lv2_obj::g_waiting);
 
-// Amount of PPU threads running simultaneously (must be 2)
-cfg::int_entry<1, 16> g_cfg_ppu_threads(cfg::root.core, "PPU Threads", 2);
-
 void lv2_obj::sleep_timeout(named_thread& thread, u64 timeout)
 {
 	semaphore_lock lock(g_mutex);
@@ -1041,7 +1012,7 @@ void lv2_obj::sleep_timeout(named_thread& thread, u64 timeout)
 
 	if (auto ppu = dynamic_cast<ppu_thread*>(&thread))
 	{
-		sys_ppu_thread.trace("sleep() - waiting (%zu)", g_pending.size());
+		LOG_TRACE(PPU, "sleep() - waiting (%zu)", g_pending.size());
 
 		auto state = ppu->state.fetch_op([&](auto& val)
 		{
@@ -1053,7 +1024,7 @@ void lv2_obj::sleep_timeout(named_thread& thread, u64 timeout)
 
 		if (test(state, cpu_flag::signal))
 		{
-			sys_ppu_thread.trace("sleep() failed (signaled)");
+			LOG_TRACE(PPU, "sleep() failed (signaled)");
 			return;
 		}
 
@@ -1126,14 +1097,14 @@ void lv2_obj::awake(cpu_thread& cpu, u32 prio)
 	{
 		if (i < g_ppu.size() && g_ppu[i] == &cpu)
 		{
-			sys_ppu_thread.trace("sleep() - suspended (p=%zu)", g_pending.size());
+			LOG_TRACE(PPU, "sleep() - suspended (p=%zu)", g_pending.size());
 			break;
 		}
 
 		// Use priority, also preserve FIFO order
 		if (i == g_ppu.size() || g_ppu[i]->prio > static_cast<ppu_thread&>(cpu).prio)
 		{
-			sys_ppu_thread.trace("awake(): %s", cpu.id);
+			LOG_TRACE(PPU, "awake(): %s", cpu.id);
 			g_ppu.insert(g_ppu.cbegin() + i, &static_cast<ppu_thread&>(cpu));
 
 			// Unregister timeout if necessary
@@ -1157,13 +1128,13 @@ void lv2_obj::awake(cpu_thread& cpu, u32 prio)
 	}
 
 	// Suspend threads if necessary
-	for (std::size_t i = g_cfg_ppu_threads; i < g_ppu.size(); i++)
+	for (std::size_t i = g_cfg.core.ppu_threads; i < g_ppu.size(); i++)
 	{
 		const auto target = g_ppu[i];
 
 		if (!target->state.test_and_set(cpu_flag::suspend))
 		{
-			sys_ppu_thread.trace("suspend(): %s", target->id);
+			LOG_TRACE(PPU, "suspend(): %s", target->id);
 			g_pending.emplace_back(target);
 		}
 	}
@@ -1183,13 +1154,13 @@ void lv2_obj::schedule_all()
 	if (g_pending.empty())
 	{
 		// Wake up threads
-		for (std::size_t i = 0, x = std::min<std::size_t>(g_cfg_ppu_threads, g_ppu.size()); i < x; i++)
+		for (std::size_t i = 0, x = std::min<std::size_t>(g_cfg.core.ppu_threads, g_ppu.size()); i < x; i++)
 		{
 			const auto target = g_ppu[i];
 
 			if (test(target->state, cpu_flag::suspend))
 			{
-				sys_ppu_thread.trace("schedule(): %s", target->id);
+				LOG_TRACE(PPU, "schedule(): %s", target->id);
 				target->state ^= (cpu_flag::signal + cpu_flag::suspend);
 				target->start_time = 0;
 

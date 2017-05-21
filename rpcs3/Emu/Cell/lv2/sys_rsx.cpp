@@ -9,7 +9,7 @@
 
 namespace vm { using namespace ps3; }
 
-logs::channel sys_rsx("sys_rsx", logs::level::notice);
+logs::channel sys_rsx("sys_rsx");
 
 namespace
 {
