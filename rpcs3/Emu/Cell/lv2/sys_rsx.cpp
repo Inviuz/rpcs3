@@ -83,14 +83,15 @@ s32 sys_rsx_context_allocate(vm::ptr<u32> context_id, vm::ptr<u32> lpar_dma_cont
 		context_id, lpar_dma_control, lpar_driver_info, lpar_reports, mem_ctx, system_mode);
 
 	//*g_lpar_driver_inf = {};
-	//vm::var<u64> lpar_driver_inf = 0x211d0100918;
+	vm::var<u64,vm::page_allocator<>> lpar_driver_inf = 0x211d0100918;
 	//*lpar_driver_info = lpar_driver_inf.addr();
 	*context_id = 2;
 	*lpar_dma_control = 0x60100000;
 	*lpar_reports = 0x60300000;
-	*lpar_driver_info = 0x211d0100918; //d0100918
+	*lpar_driver_info = lpar_driver_inf.addr(); //d0100918
+	//*lpar_driver_info = 
 
-	//*g_lpar_driver_inf = 0x211;
+	//*g_lpar_driver_inf = 0x211d0100918;
 	//lpar_driver_info = g_lpar_driver_inf.ptr(&lpar_context::lparversion);
 	
 	//*lpar_driver_info = lpar_driver_inf.addr();
